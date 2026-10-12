@@ -4,3 +4,6 @@ dist/
 *.log
 bin/
 obj/
+.compiler-check
+.workflow-check
+compiler-check.tar
