@@ -28,7 +28,25 @@ const 啟動=async()=>{
  await 頁.waitForFunction(()=>window.aquarius);
  await 頁.evaluate(()=>{window.看板工作=window.aquarius.run(window.aquarius.bundle.entry,0).catch(錯=>{window.啟動錯誤=錯.message;});});
  await 頁.waitForFunction(()=>window.aquarius.host?.processing||window.啟動錯誤);
- await 頁.evaluate(()=>{const 機=window.aquarius.host.processing,完成=機.endFrame.bind(機),開始=機.beginFrame.bind(機),繪=機.screen.draw.bind(機.screen);window.完成繪圖=0;window.裁切紀錄=new Set();window.待裁切紀錄=new Set();機.screen.draw=(...參數)=>{if(機.screen.clip)window.待裁切紀錄.add(JSON.stringify(機.screen.clip));return 繪(...參數);};機.beginFrame=async()=>{window.繪圖起點=performance.now();window.待裁切紀錄=new Set();return 開始();};機.endFrame=async()=>{await 完成();window.裁切紀錄=window.待裁切紀錄;window.完成繪圖=機.frameCount;window.最近繪圖耗時=performance.now()-window.繪圖起點;};});
+ await 頁.evaluate(()=>{
+   const 機=window.aquarius.host.processing,完成=機.endFrame.bind(機),開始=機.beginFrame.bind(機),繪=機.screen.draw.bind(機.screen);
+   window.完成繪圖=0;window.裁切紀錄=new Set();window.待裁切紀錄=new Set();window.文字紀錄=[];
+   機.screen.draw=(...參數)=>{
+     const 畫面=機.screen,[頂點,材質]=參數;
+     if(畫面.clip)window.待裁切紀錄.add(JSON.stringify(畫面.clip));
+     if(window.記錄文字&&材質&&Array.from(機.textCache.values()).includes(材質)){
+       const 左=Math.min(...頂點.map(點=>點[0])),上=Math.min(...頂點.map(點=>點[1]));
+       window.待文字紀錄.push({矩陣:Array.from(畫面.model),字級:畫面.style.textSize,密度:畫面.pixelHeight/畫面.height,
+         左:左*畫面.pixelWidth/畫面.width,上:上*畫面.pixelHeight/畫面.height,
+         寬:(Math.max(...頂點.map(點=>點[0]))-左)*畫面.pixelWidth/畫面.width,
+         高:(Math.max(...頂點.map(點=>點[1]))-上)*畫面.pixelHeight/畫面.height,
+         材質寬:材質.texture.width,材質高:材質.texture.height});
+     }
+     return 繪(...參數);
+   };
+   機.beginFrame=async()=>{window.繪圖起點=performance.now();window.待裁切紀錄=new Set();window.待文字紀錄=[];return 開始();};
+   機.endFrame=async()=>{await 完成();window.裁切紀錄=window.待裁切紀錄;window.文字紀錄=window.待文字紀錄;window.完成繪圖=機.frameCount;window.最近繪圖耗時=performance.now()-window.繪圖起點;};
+ });
  await 頁.waitForFunction(()=>window.完成繪圖>=2||window.啟動錯誤);
  await 頁.waitForTimeout(100);
  驗證.equal(await 頁.evaluate(()=>window.啟動錯誤),undefined);
@@ -39,6 +57,28 @@ try{
  await 點('稍後再看');await 檢查('星泉判斷網頁環境',async()=>{驗證.equal((await 狀態()).是網頁,true);驗證.equal((await 狀態()).未儲存,false);});
  await 頁.screenshot({path:路徑.join(結果根,'看板畫面.png')});
  await 檢查('範例與範本資料',async()=>{const 文=(await 狀態()).文件;驗證.equal(文.範本.length,3);驗證.equal(文.工作區[0].看板.length,3);});
+ await 檢查('解析度與 DPI 變更後文字按實際像素重繪',async()=>{
+   await 頁.evaluate(()=>window.記錄文字=true);
+   for(const [寬,高,密度,百分比] of [[1440,900,1,70],[1920,1080,1,110],[2560,1440,1,150],[3840,2160,1,100],[1440,900,1.25,110],[1440,900,1.5,110],[1440,900,2,110]]){
+     await 頁.setViewportSize({width:寬,height:高});
+     await 頁.evaluate(({密度,百分比})=>{
+       Object.defineProperty(window,'devicePixelRatio',{value:密度,configurable:true});
+       const 機=window.aquarius.host;return 機.runtime.invoke(機.cache.get('星泉看板.aqua').scope.get('設定介面縮放'),[{type:'int',value:百分比}]);
+     },{密度,百分比});
+     await 頁.waitForFunction(({寬,高,密度})=>{
+       const 機=window.aquarius.host.processing;return 機.screen.pixelWidth===寬*密度&&機.screen.pixelHeight===高*密度&&window.完成繪圖===機.frameCount&&window.文字紀錄.length>0;
+     },{寬,高,密度});await 安定();
+     const 紀錄=await 頁.evaluate(()=>window.文字紀錄);驗證.ok(紀錄.length>20);
+     for(const 文 of 紀錄){
+       驗證.deepEqual(文.矩陣,[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],'文字仍隨版面矩陣拉伸');
+       驗證.ok(Math.abs(文.字級*文.密度-Math.round(文.字級*文.密度))<0.001,'字級未對齊實際像素');
+       for(const 值 of [文.左,文.上])驗證.ok(Math.abs(值-Math.round(值))<0.001,'文字起點未對齊實際像素：'+JSON.stringify(文));
+       驗證.ok(Math.abs(文.寬-文.材質寬)<0.01&&Math.abs(文.高-文.材質高)<0.01,'文字材質受到二次縮放：'+JSON.stringify(文));
+     }
+   }
+   await 頁.screenshot({path:路徑.join(結果根,'高DPI文字.png')});
+   await 頁.evaluate(()=>{delete window.devicePixelRatio;window.記錄文字=false;});await 點('重設介面縮放（100%）');
+ });
  await 檢查('4K 同步放大元件文字與裁切',async()=>{
    const 原卡=(await 操作區()).find(區=>區[5]==='卡片');
    await 頁.setViewportSize({width:3840,height:2160});await 頁.waitForTimeout(150);await 安定();
