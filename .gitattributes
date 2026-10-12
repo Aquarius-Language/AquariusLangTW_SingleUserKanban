@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Git binary patches must retain LF headers on Windows runners.
+*.patch text eol=lf
