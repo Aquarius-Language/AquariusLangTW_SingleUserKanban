@@ -21,8 +21,9 @@ const 安定=async()=>{await 頁.waitForFunction(()=>window.aquarius.host?.proce
 const 狀態=async()=>{await 安定();return 頁.evaluate(async()=>{const 機=window.aquarius.host,轉=(await import('./application.mjs')).toValue;return 轉(await 機.runtime.invoke(機.cache.get('星泉看板.aqua').scope.get('取得狀態')));});};
 const 操作區=async()=>{await 安定();return 頁.evaluate(async()=>{const 機=window.aquarius.host,轉=(await import('./application.mjs')).toValue;return 轉(await 機.runtime.invoke(機.cache.get('星泉看板.aqua').scope.get('取得操作區')));});};
 const 呼叫=(名稱)=>頁.evaluate(async(名稱)=>{const 機=window.aquarius.host;await 機.runtime.invoke(機.cache.get('星泉看板.aqua').scope.get(名稱));},名稱);
+const 編輯文字=()=>頁.evaluate(async()=>{const 機=window.aquarius.host,轉=(await import('./application.mjs')).toValue;return 轉(await 機.runtime.invoke(機.cache.get('星泉介面.aqua').scope.get('編輯內容'),[機.cache.get('星泉看板.aqua').scope.get('編輯器')]));});
 const 找區=async(標籤)=>{const 區=(await 操作區()).find(項=>項[4]===標籤);驗證.ok(區,'找不到操作區：'+標籤);return 區;};
-const 點=async(標籤)=>{const 區=(await 操作區()).find(項=>項[4]===標籤);驗證.ok(區,'找不到操作區：'+標籤);await 頁.mouse.click(區[0]+區[2]/2,區[1]+區[3]/2);await 頁.waitForTimeout(60);await 安定();};
+const 點=async(標籤,等待完成=true)=>{const 區=(await 操作區()).find(項=>項[4]===標籤);驗證.ok(區,'找不到操作區：'+標籤);await 頁.mouse.click(區[0]+區[2]/2,區[1]+區[3]/2);await 頁.waitForTimeout(60);if(等待完成)await 安定();};
 const 啟動=async()=>{
  await 頁.goto('http://127.0.0.1:'+伺服器.address().port+'/?autorun=0');
  await 頁.waitForFunction(()=>window.aquarius);
@@ -57,6 +58,23 @@ try{
  await 點('稍後再看');await 檢查('星泉判斷網頁環境',async()=>{驗證.equal((await 狀態()).是網頁,true);驗證.equal((await 狀態()).未儲存,false);});
  await 頁.screenshot({path:路徑.join(結果根,'看板畫面.png')});
  await 檢查('範例與範本資料',async()=>{const 文=(await 狀態()).文件;驗證.equal(文.範本.length,3);驗證.equal(文.工作區[0].看板.length,3);});
+ await 檢查('實體鍵盤點選欄位後輸入空白與文字',async()=>{
+   await 點('搜尋卡片');
+   驗證.equal(await 頁.evaluate(()=>document.activeElement===window.aquarius.host.processing.textarea),true,'點選欄位後文字接收器沒有焦點');
+   await 頁.keyboard.type('hello world');await 安定();
+   驗證.equal(await 編輯文字(),'hello world');
+   await 點('搜尋卡片');await 頁.keyboard.type(' again');await 安定();驗證.equal(await 編輯文字(),'hello world again');
+   await 頁.keyboard.press('Control+A');await 頁.keyboard.type('replace');await 頁.keyboard.press('Backspace');await 安定();驗證.equal(await 編輯文字(),'replac');
+   await 點('清除篩選');
+ });
+ await 檢查('中文組字提交一次並接續一般鍵入',async()=>{
+   await 點('搜尋卡片');const 協定=await 頁.context().newCDPSession(頁);
+   await 協定.send('Input.imeSetComposition',{text:'中文',selectionStart:2,selectionEnd:2});await 安定();驗證.equal(await 編輯文字(),'');
+   await 協定.send('Input.insertText',{text:'中文'});await 安定();驗證.equal(await 編輯文字(),'中文');
+   await 頁.keyboard.type(' test');await 安定();驗證.equal(await 編輯文字(),'中文 test');
+   await 協定.detach();await 點('清除篩選');
+ });
+ if(process.argv.includes('--文字輸入')){驗證.deepEqual(錯誤,[]);console.log('文字輸入驗證完成。');}else{
  await 檢查('解析度與 DPI 變更後文字按實際像素重繪',async()=>{
    await 頁.evaluate(()=>window.記錄文字=true);
    for(const [寬,高,密度,百分比] of [[1440,900,1,70],[1920,1080,1,110],[2560,1440,1,150],[3840,2160,1,100],[1440,900,1.25,110],[1440,900,1.5,110],[1440,900,2,110]]){
@@ -128,11 +146,11 @@ try{
  const 下載等待=頁.waitForEvent('download');await 點('儲存備份');const 下載=await 下載等待;await 下載.saveAs(路徑.join(結果根,'往返備份.星板'));
  await 檢查('網頁手動匯出',async()=>{驗證.equal((await 狀態()).未儲存,false);驗證.ok((await 讀取(路徑.join(結果根,'往返備份.星板'))).length>1000);});
  await 點('卡片：繁體中文輸入測試');await 點('卡片名稱');await 頁.keyboard.press('Control+A');await 頁.keyboard.insertText('載入前的變更');await 點('關閉詳情');
- const 選檔等待=頁.waitForEvent('filechooser');await 點('載入');const 選檔=await 選檔等待;await 選檔.setFiles(路徑.join(結果根,'往返備份.星板'));await 頁.waitForTimeout(150);await 點('確認');
+ const 選檔等待=頁.waitForEvent('filechooser');await 點('載入',false);const 選檔=await 選檔等待;await 選檔.setFiles(路徑.join(結果根,'往返備份.星板'));await 頁.waitForTimeout(150);await 點('確認');
  await 檢查('網頁手動載入完整往返',async()=>驗證.equal((await 狀態()).文件.工作區[0].看板.at(-1).清單[0].卡片[0].名稱,'繁體中文輸入測試'));
- await 檢查('損壞備份保留目前文件',async()=>{await 寫入(路徑.join(結果根,'損壞備份.星板'),new Uint8Array([1,2,3]));const 等=頁.waitForEvent('filechooser');await 點('載入');await (await 等).setFiles(路徑.join(結果根,'損壞備份.星板'));await 頁.waitForTimeout(100);await 點('確認');驗證.equal((await 狀態()).文件.工作區[0].看板.at(-1).名稱,'測試範本看板');驗證.match((await 狀態()).訊息,/不是支援/);await 呼叫('關對話');await 頁.waitForTimeout(100);});
+ await 檢查('損壞備份保留目前文件',async()=>{await 寫入(路徑.join(結果根,'損壞備份.星板'),new Uint8Array([1,2,3]));const 等=頁.waitForEvent('filechooser');await 點('載入',false);await (await 等).setFiles(路徑.join(結果根,'損壞備份.星板'));await 頁.waitForTimeout(100);await 點('確認');驗證.equal((await 狀態()).文件.工作區[0].看板.at(-1).名稱,'測試範本看板');驗證.match((await 狀態()).訊息,/不是支援/);await 呼叫('關對話');await 頁.waitForTimeout(100);});
  await 點('卡片：繁體中文輸入測試');
- await 檢查('附件加入與手動完整備份',async()=>{const 檔=路徑.join(結果根,'繁體中文附件.txt');await 寫入(檔,'星泉附件往返驗證');for(let 次=0;次<8&&!(await 操作區()).some(項=>項[4]==='＋ 加入附件');次++){await 頁.mouse.move(1000,660);await 頁.mouse.wheel(0,480);await 頁.waitForTimeout(100);}const 等=頁.waitForEvent('filechooser');await 點('＋ 加入附件');await (await 等).setFiles(檔);await 頁.waitForTimeout(150);const 附=(await 狀態()).文件.工作區[0].看板.at(-1).清單[0].卡片[0].附件[0];驗證.equal(附.名稱,'繁體中文附件.txt');驗證.equal(附.位元組,undefined);await 點('關閉詳情');const 存=頁.waitForEvent('download');await 點('儲存備份');await (await 存).saveAs(路徑.join(結果根,'附件備份.星板'));const 選=頁.waitForEvent('filechooser');await 點('載入');await (await 選).setFiles(路徑.join(結果根,'附件備份.星板'));await 頁.waitForTimeout(120);await 點('確認');await 點('卡片：繁體中文輸入測試');for(let 次=0;次<8&&!(await 操作區()).some(項=>項[4]==='另存');次++){await 頁.mouse.move(1000,660);await 頁.mouse.wheel(0,480);await 頁.waitForTimeout(100);}const 附存=頁.waitForEvent('download');await 點('另存');await (await 附存).saveAs(路徑.join(結果根,'附件載回.txt'));驗證.deepEqual(await 讀取(路徑.join(結果根,'附件載回.txt')),await 讀取(檔));await 點('關閉詳情');});
+ await 檢查('附件加入與手動完整備份',async()=>{const 檔=路徑.join(結果根,'繁體中文附件.txt');await 寫入(檔,'星泉附件往返驗證');for(let 次=0;次<8&&!(await 操作區()).some(項=>項[4]==='＋ 加入附件');次++){await 頁.mouse.move(1000,660);await 頁.mouse.wheel(0,480);await 頁.waitForTimeout(100);}const 等=頁.waitForEvent('filechooser');await 點('＋ 加入附件',false);await (await 等).setFiles(檔);await 頁.waitForTimeout(150);const 附=(await 狀態()).文件.工作區[0].看板.at(-1).清單[0].卡片[0].附件[0];驗證.equal(附.名稱,'繁體中文附件.txt');驗證.equal(附.位元組,undefined);await 點('關閉詳情');const 存=頁.waitForEvent('download');await 點('儲存備份');await (await 存).saveAs(路徑.join(結果根,'附件備份.星板'));const 選=頁.waitForEvent('filechooser');await 點('載入',false);await (await 選).setFiles(路徑.join(結果根,'附件備份.星板'));await 頁.waitForTimeout(120);await 點('確認');await 點('卡片：繁體中文輸入測試');for(let 次=0;次<8&&!(await 操作區()).some(項=>項[4]==='另存');次++){await 頁.mouse.move(1000,660);await 頁.mouse.wheel(0,480);await 頁.waitForTimeout(100);}const 附存=頁.waitForEvent('download');await 點('另存');await (await 附存).saveAs(路徑.join(結果根,'附件載回.txt'));驗證.deepEqual(await 讀取(路徑.join(結果根,'附件載回.txt')),await 讀取(檔));await 點('關閉詳情');});
  await 檢查('拖曳卡片跨清單',async()=>{const 來源=await 找區('卡片：繁體中文輸入測試');await 頁.mouse.move(來源[0]+100,來源[1]+40);await 頁.mouse.down();await 頁.mouse.move(來源[0]+400,來源[1]+45,{steps:8});await 頁.mouse.up();await 頁.waitForTimeout(180);const 板=(await 狀態()).文件.工作區[0].看板.at(-1);驗證.ok(板.清單[1].卡片.some(卡=>卡.名稱==='繁體中文輸入測試'));});
  await 檢查('表格視圖',async()=>{await 點('表格');驗證.ok((await 操作區()).some(項=>項[4]==='繁體中文輸入測試'));const 區=(await 操作區()).findLast(項=>項[4]==='看板');await 頁.mouse.click(區[0]+區[2]/2,區[1]+區[3]/2);await 頁.waitForTimeout(100);驗證.equal((await 狀態()).檢視,'流動');});
  await 檢查('檢查表與步驟勾選',async()=>{await 點('卡片：繁體中文輸入測試');await 點('＋ 檢查表');await 點('檢查表名稱');await 頁.keyboard.press('Control+A');await 頁.keyboard.insertText('繁體中文檢查表');await 點('確認');await 點('＋ 新增步驟');await 點('內容');await 頁.keyboard.insertText('完成第一個步驟');await 點('確認');await 點('○ 完成第一個步驟');const 狀=await 狀態(),板=狀.文件.工作區[0].看板.at(-1),卡=板.清單.flatMap(列=>列.卡片).find(卡=>卡.名稱==='繁體中文輸入測試');驗證.equal(卡.檢查表[0].項目[0].完成,true);await 點('關閉詳情');});
@@ -157,5 +175,6 @@ try{
  await 檢查('四千張卡片穩定繪圖量測',async()=>{const 耗時=[];await 頁.mouse.move(820,460);await 安定();for(let 次=0;次<8;次++){const 帧=await 頁.evaluate(()=>window.完成繪圖);await 頁.mouse.wheel(0,80);await 頁.waitForFunction(起=>window.完成繪圖>起,帧);await 安定();耗時.push(await 頁.evaluate(()=>Math.round(window.最近繪圖耗時)));}耗時.sort((甲,乙)=>甲-乙);結果.push({名稱:'四千張卡片捲動繪圖量測',樣本毫秒:耗時,中位數毫秒:耗時[4],最大毫秒:耗時[7]});驗證.ok(耗時[4]<150,'捲動繪圖中位數超過一百五十毫秒');});
  await 檢查('縮放視窗保留操作能力',async()=>{await 頁.setViewportSize({width:1100,height:700});await 頁.waitForTimeout(150);await 找區('儲存備份');await 找區('水平捲動條');await 頁.screenshot({path:路徑.join(結果根,'縮放視窗.png')});});
  驗證.deepEqual(錯誤,[]);
+ }
 }catch(錯){結果.push({名稱:'瀏覽器整合',通過:false,錯誤:錯.stack});console.error(錯);await 頁.screenshot({path:路徑.join(結果根,'失敗畫面.png')});process.exitCode=1;}
-finally{await 頁.evaluate(()=>window.aquarius?.stop()).catch(()=>{});await 瀏覽器.close();await new Promise(完成=>伺服器.close(完成));await 寫入(路徑.join(結果根,'瀏覽器結果.json'),JSON.stringify({結果,錯誤},null,2));}
+finally{await 頁.evaluate(()=>window.aquarius?.stop()).catch(()=>{});await 瀏覽器.close();await new Promise(完成=>伺服器.close(完成));await 寫入(路徑.join(結果根,process.argv.includes('--文字輸入')?'文字輸入結果.json':'瀏覽器結果.json'),JSON.stringify({結果,錯誤},null,2));}

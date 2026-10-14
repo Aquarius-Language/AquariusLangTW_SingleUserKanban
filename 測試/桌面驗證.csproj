@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><RootNamespace>星泉看板驗證</RootNamespace></PropertyGroup>
-  <ItemGroup><ProjectReference Include="$(AquariusRoot)/AquariusDesktop/AquariusDesktop.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="$(AquariusRoot)/AquariusDesktop/AquariusDesktop.csproj" /><ProjectReference Include="$(AquariusRoot)/AquariusCore/AquariusCore.csproj" /></ItemGroup>
 </Project>

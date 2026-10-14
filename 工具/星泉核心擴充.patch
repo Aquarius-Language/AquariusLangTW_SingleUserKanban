@@ -109,7 +109,7 @@ index 2ed90ec..df035c5 100644
  using System.Diagnostics;
  using AquariusLang.Object;
  using AquariusLang.utils;
-@@ -13,10 +15,20 @@ namespace AquariusLang.runtime {
+@@ -13,10 +15,22 @@ namespace AquariusLang.runtime {
          public Builtins(Dictionary<string, BuiltinObj> builtinFuncs) {
              this.builtinFuncs = builtinFuncs;
              builtins = new Dictionary<string, IObject>();
@@ -129,6 +129,8 @@ index 2ed90ec..df035c5 100644
 +            日期函式.RetainedEnvironment = 純量範圍;
 +            DefineFunction(日期函式,
 +                traditionalChineseName: "目前日期", englishName: "currentDate");
++            DefineFunction(BuiltinObj.FromBorrowed(args => args.Length == 0 ? new BooleanObj(false) : newError("isOSAndroid expects 0 arguments.")), "是Android", "isOSAndroid");
++            DefineFunction(BuiltinObj.FromBorrowed(args => args.Length == 0 ? new BooleanObj(false) : newError("isWeb expects 0 arguments.")), "是網頁", "isWeb");
          }
  
          public Builtins() : this(new Dictionary<string, BuiltinObj>()) { }
@@ -136,11 +138,12 @@ diff --git a/AquariusCore/runtime/LibraryCatalog.cs b/AquariusCore/runtime/Libra
 index 021803c..a96e075 100644
 --- a/AquariusCore/runtime/LibraryCatalog.cs
 +++ b/AquariusCore/runtime/LibraryCatalog.cs
-@@ -30,6 +30,7 @@ public static partial class LibraryCatalog {
+@@ -30,6 +30,8 @@ public static partial class LibraryCatalog {
          new("", "rest", "其餘", 1, 1), new("", "push", "加入", 2, 2),
          new("", "print", "印出", 0, int.MaxValue), new("", "import", "匯入", 1, 1),
          new("", "currentTime", "目前時間", 0, 0),
 +        new("", "currentDate", "目前日期", 0, 0),
++        new("", "isOSAndroid", "是Android", 0, 0), new("", "isWeb", "是網頁", 0, 0),
          new("", "isOSWindows", "是Windows", 0, 0), new("", "isOSLinux", "是Linux", 0, 0),
          new("", "isOSMacOS", "是MacOS", 0, 0), new("", "execFile", "執行檔案", 2, 2)
      });
@@ -743,7 +746,7 @@ index df331b6..3041c48 100644
    async execute(entry){entry=lookupPath(this.bundle.modules,this.resolve(entry),{module:true});if(this.importing.has(entry))throw new Error(`Circular import: ${entry}`);this.importing.add(entry);try{return await this.runtime.execute(this.bundle.modules[entry],new Scope(),this.builtinsFor(entry));}finally{this.importing.delete(entry);this.webcam?.closeSessions();}}
    registerGlobals(){const globals=this.newModule(),b=(n,f,raw=false)=>this.bind(globals,'',n,f,raw);
 -    b('currentTime',()=>num(performance.now(),'double'),true);
-+    b('currentTime',()=>num(performance.now(),'double'),true);b('currentDate',()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');});
++    b('isOSAndroid',()=>false);b('isWeb',()=>true);b('currentTime',()=>num(performance.now(),'double'),true);b('currentDate',()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');});
      b('len',v=>num(typeof v==='string'?v.length:Array.isArray(v)?v.length:(()=>{throw new Error('len expects string or array');})(),'int'),true);b('last',v=>{if(!Array.isArray(v))throw new Error('last expects array');return v.at(-1)??null;},true);b('rest',v=>{if(!Array.isArray(v))throw new Error('rest expects array');return v.length?v.slice(1):null;},true);b('push',(a,v)=>{if(!Array.isArray(a))throw new Error('push expects array');return [...a,v];},true);b('print',(...a)=>{this.print(a.map(inspect).join(' '));},true);for(const n of ['isOSWindows','isOSLinux','isOSMacOS'])b(n,()=>false);b('execFile',()=>{throw new Error('execFile requires a desktop host');});this.builtins=new Map(globals.scope.store);
      for(const [name,id]of [['len',1],['last',2],['rest',3],['push',4]])this.builtins.get(name)[portableBuiltin]=id;
    }
