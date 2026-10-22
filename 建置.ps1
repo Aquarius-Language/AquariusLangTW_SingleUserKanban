@@ -1,9 +1,10 @@
 ﻿#requires -Version 5.1
 param([switch]$略過桌面,
-    [switch]$Android, [switch]$APK
+    [switch]$Android, [switch]$APK,
+    [string]$編譯器路徑 = ''
 )
 $ErrorActionPreference = 'Stop'
-$編譯器 = (Get-Command aqua -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+$編譯器 = if ($編譯器路徑) { (Resolve-Path -LiteralPath $編譯器路徑).ProviderPath } else { (Get-Command aqua -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source }
 $網頁工具 = (Get-Command node -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 Push-Location $PSScriptRoot
 try {
@@ -18,7 +19,7 @@ try {
             }
         }
     }
-    & $編譯器 build 啟動看板.aqua 星泉看板.aqua 星泉介面.aqua 看板引擎.aqua 捲動區.aqua 附件管理.aqua 語言.aqua 主題.aqua 圖示.aqua --root . --entry 啟動看板.aqua -o dist/星泉看板.wasm
+    & $編譯器 build aqua.toml -o dist/星泉看板.wasm
     if ($LASTEXITCODE -ne 0) { throw '星泉看板編譯失敗。' }
     # 不同編譯器版本的執行環境檔案不同，先在全新目錄完成輸出與封裝。
     $網頁暫存 = Join-Path $產物目錄 ('web-stage-' + [Guid]::NewGuid().ToString('N'))
@@ -41,7 +42,7 @@ try {
     }
     if ($網頁備份) { Write-Output "舊網頁輸出已保留於：$網頁備份" }
     if (-not $略過桌面) {
-        & $編譯器 build dist/星泉看板.wasm --target windows -o dist/星泉看板.exe
+        & $編譯器 build aqua.toml --target windows -o dist/星泉看板.exe
         if ($LASTEXITCODE -ne 0) { throw '桌面輸出失敗；請確認 aqua 已附帶相容的 Windows 星泉應用程式主機。' }
     }
     Write-Output '已完成星泉看板。'

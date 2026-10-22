@@ -1,0 +1,12 @@
+manifest_version = 1
+
+[project]
+name = "星泉看板"
+type = "executable"
+version = "1.1.0"
+entry = "啟動看板.aqua"
+sources = ["啟動看板.aqua", "星泉看板.aqua", "星泉介面.aqua", "看板引擎.aqua", "捲動區.aqua", "附件管理.aqua", "語言.aqua", "主題.aqua", "圖示.aqua"]
+platforms = ["windows", "web", "android"]
+
+[desktop]
+hide_terminal = true

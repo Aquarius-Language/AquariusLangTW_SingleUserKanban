@@ -14,7 +14,7 @@ try {
     $OutputEncoding = [Text.UTF8Encoding]::new($false)
     [Console]::OutputEncoding = $OutputEncoding
     New-Item -ItemType Directory -Path '測試\結果' -Force | Out-Null
-    & $編譯工具 $編譯器 build 測試/資料驗證.aqua 看板引擎.aqua 捲動區.aqua --root . --entry 測試/資料驗證.aqua -o 測試/結果/資料驗證.wasm
+    & $編譯工具 $編譯器 build 驗證.toml -o 測試/結果/資料驗證.wasm
     if ($LASTEXITCODE -ne 0) { throw '資料驗證編譯失敗。' }
     $資料結果 = & $編譯工具 $編譯器 run 測試/結果/資料驗證.wasm 2>&1
     $資料代碼 = $LASTEXITCODE

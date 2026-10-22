@@ -59,6 +59,13 @@ jobs:
           git -C .compiler apply ../工具/星泉核心擴充.patch
           if ($LASTEXITCODE -ne 0) { throw 'Core patch application failed.' }
 
+      - name: Add desktop manifest options to the pinned compiler
+        run: |
+          git -C .compiler apply --check ../工具/桌面建置選項.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop build options patch validation failed.' }
+          git -C .compiler apply ../工具/桌面建置選項.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop build options patch application failed.' }
+
       - name: Prepare browser dependencies
         run: |
           npm ci --prefix .compiler/AquariusWebCompiler

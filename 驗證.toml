@@ -1,0 +1,7 @@
+manifest_version = 1
+
+[project]
+name = "星泉看板驗證"
+type = "executable"
+entry = "測試/資料驗證.aqua"
+sources = ["測試/資料驗證.aqua", "看板引擎.aqua", "捲動區.aqua"]
