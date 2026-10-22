@@ -29,6 +29,7 @@ jobs:
         run: |
           $project = Get-Content -LiteralPath '專案.json' -Raw | ConvertFrom-Json
           "revision=$($project.'星泉基準')" >> $env:GITHUB_OUTPUT
+          "patch=$($project.'需要核心擴充'.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
       - name: Check out the compiler
         uses: actions/checkout@v6
@@ -51,6 +52,7 @@ jobs:
           cache-dependency-path: .compiler/AquariusWebCompiler/package-lock.json
 
       - name: Apply the required core extensions
+        if: steps.compiler.outputs.patch == 'true'
         run: |
           git -C .compiler apply --check ../工具/星泉核心擴充.patch
           if ($LASTEXITCODE -ne 0) { throw 'Core patch validation failed.' }
