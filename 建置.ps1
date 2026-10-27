@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 param([switch]$略過桌面,
     [switch]$Android, [switch]$APK,
     [string]$編譯器路徑 = ''
@@ -48,7 +48,7 @@ try {
     Write-Output '已完成星泉看板。'
 
     if ($Android -or $APK) {
-        $AndroidOutput = if ($APK) { 'dist/android.apk' } else { ('dist/android-project-' + [Guid]::NewGuid().ToString('N').Substring(0,8)) }
+        $AndroidOutput = 'dist/android.apk'
         & $編譯器 build 'dist/星泉看板.wasm' --target android -o $AndroidOutput
         if ($LASTEXITCODE -ne 0) { throw 'Android 建置失敗。' }
     }

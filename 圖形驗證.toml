@@ -1,0 +1,7 @@
+manifest_version=2
+[project]
+name="KanbanGuiVerification"
+version="1.0.0"
+entry="測試/桌面驗證.aqua"
+sources=["星泉看板.aqua","星泉介面.aqua","看板引擎.aqua","捲動區.aqua","附件管理.aqua","語言.aqua","主題.aqua","圖示.aqua","測試/桌面驗證.aqua"]
+platforms=["windows","linux","web","android"]

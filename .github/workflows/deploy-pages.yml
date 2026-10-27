@@ -1,17 +1,13 @@
 name: Build and deploy GitHub Pages
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: github-pages
   cancel-in-progress: false
-
 jobs:
   build:
     runs-on: windows-latest
@@ -23,79 +19,40 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-
-      - name: Read the pinned compiler revision
-        id: compiler
-        run: |
-          $project = Get-Content -LiteralPath '專案.json' -Raw | ConvertFrom-Json
-          "revision=$($project.'星泉基準')" >> $env:GITHUB_OUTPUT
-          "patch=$($project.'需要核心擴充'.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-
-      - name: Check out the compiler
+      - name: Check out the native SDK compiler
         uses: actions/checkout@v6
         with:
           repository: Aquarius-Language/AquariusLangTW
-          ref: ${{ steps.compiler.outputs.revision }}
+          ref: 253e3181eb46a3229d572286ae9dd4464c908068
           path: .compiler
           persist-credentials: false
-
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: .compiler/AquariusWebCompiler/package-lock.json
-
-      - name: Apply the required core extensions
-        if: steps.compiler.outputs.patch == 'true'
+      - name: Build the pinned native runtime packs and compiler
         run: |
-          git -C .compiler apply --check ../工具/星泉核心擴充.patch
-          if ($LASTEXITCODE -ne 0) { throw 'Core patch validation failed.' }
-          git -C .compiler apply ../工具/星泉核心擴充.patch
-          if ($LASTEXITCODE -ne 0) { throw 'Core patch application failed.' }
-
-      - name: Add desktop manifest options to the pinned compiler
-        run: |
-          git -C .compiler apply --check ../工具/桌面建置選項.patch
-          if ($LASTEXITCODE -ne 0) { throw 'Desktop build options patch validation failed.' }
-          git -C .compiler apply ../工具/桌面建置選項.patch
-          if ($LASTEXITCODE -ne 0) { throw 'Desktop build options patch application failed.' }
-
-      - name: Prepare browser dependencies
-        run: |
-          npm ci --prefix .compiler/AquariusWebCompiler
-          if ($LASTEXITCODE -ne 0) { throw 'Browser dependency installation failed.' }
-          npm run --prefix .compiler/AquariusWebCompiler prepare:browser
-          if ($LASTEXITCODE -ne 0) { throw 'Browser dependency preparation failed.' }
-
-      - name: Build the compiler
-        run: |
-          $compilerDirectory = Join-Path $env:RUNNER_TEMP 'aquarius-cli'
-          dotnet build .compiler/AquariusCli/AquariusCli.csproj -c Release -o $compilerDirectory
-          if ($LASTEXITCODE -ne 0) { throw 'Compiler build failed.' }
-          # Let the existing build script invoke the framework-dependent CLI as aqua.
-          Set-Content -LiteralPath (Join-Path $compilerDirectory 'aqua.cmd') -Value '@dotnet "%~dp0aqua.dll" %*' -Encoding ascii
-          $compilerDirectory >> $env:GITHUB_PATH
-
-      - name: Build the website
+          & .compiler/scripts/install-toolchain.ps1 -Targets windows-x64,web
+          & .compiler/scripts/build-runtime.ps1 -Targets windows-x64,web
+          & .compiler/scripts/publish-cli.ps1 -Output dist/aqua
+          if ($LASTEXITCODE -ne 0) { throw 'Compiler/runtime build failed.' }
+          (Resolve-Path .compiler/dist/aqua).Path >> $env:GITHUB_PATH
+      - name: Build and verify the website
         run: |
           ./建置.ps1 -略過桌面
-          foreach ($file in @('index.html', 'app.mjs', 'program.json', 'program.wasm')) {
-            if (-not (Test-Path -LiteralPath (Join-Path '網頁' $file))) {
+          foreach ($file in @('index.html','app.mjs','aquarius.json','program.wasm','glue/index.mjs','runtime/aquarius.wasm')) {
+            if (-not (Test-Path -LiteralPath (Join-Path '網頁' $file) -PathType Leaf)) {
               throw "Missing website output: $file"
             }
           }
-
       - name: Upload the website
         uses: actions/upload-pages-artifact@v4
         with:
-          path: 網頁
-
+          path: '網頁'
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: build
@@ -109,7 +66,6 @@ jobs:
     steps:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-
       - name: Deploy the website
         id: deployment
         uses: actions/deploy-pages@v4
