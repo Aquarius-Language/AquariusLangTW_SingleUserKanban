@@ -2,7 +2,7 @@ param([string]$星泉根目錄='', [switch]$略過桌面)
 $ErrorActionPreference='Stop'
 if(!$星泉根目錄){$星泉根目錄=Join-Path (Split-Path $PSScriptRoot -Parent) 'AquariusLangTW'}
 $星泉根目錄=[IO.Path]::GetFullPath($星泉根目錄)
-$編譯器=Join-Path $星泉根目錄 'dist/aqua/aqua.exe'
+$編譯器=Join-Path $星泉根目錄 $(if($IsWindows -or $env:OS -eq 'Windows_NT'){'dist/aqua/aqua.exe'}else{'dist/aqua/aqua'})
 if(!(Test-Path -LiteralPath $編譯器)){throw '請先發佈目前的 aqua CLI，或指定正確的星泉根目錄。'}
 $原根=$env:AQUARIUS_ROOT;$原儲存=$env:AQUARIUS_STORAGE_ROOT
 Push-Location $PSScriptRoot
